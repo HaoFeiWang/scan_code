@@ -13,11 +13,15 @@ class ScanCodeManager {
     _eventChannel.receiveBroadcastStream().listen(_listener);
   }
 
-  Future<int> scanBarCode(int previewWidth, int previewHeight) async {
-    return _channel.invokeMethod("scan", <String, int>{
+  Future<int> startScan(int previewWidth, int previewHeight) async {
+    return _channel.invokeMethod("startScan", <String, int>{
       "previewWidth": previewWidth,
       "previewHeight": previewHeight
     });
+  }
+
+  Future<void> stopScan() async {
+    return _channel.invokeMethod("stopScan");
   }
 
   void _listener(dynamic event) {

@@ -20,8 +20,8 @@ public class ScanCodePlugin implements FlutterPlugin,
 
     private static final String CHANNEL = "com.whf.plugin/scan_code";
     private static final String EVENT_CHANNEL = "com.whf.plugin/scan_code/event";
-    private static final String METHOD_SCAN = "scan";
-    private static final String METHOD_STOP = "stop";
+    private static final String METHOD_SCAN = "startScan";
+    private static final String METHOD_STOP = "stopScan";
 
     private FlutterPluginBinding flutterBinding;
     private CameraScanManager cameraScanManager;

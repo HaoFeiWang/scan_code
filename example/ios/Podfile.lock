@@ -1,0 +1,22 @@
+PODS:
+  - Flutter (1.0.0)
+  - scan_code (0.0.1):
+    - Flutter
+
+DEPENDENCIES:
+  - Flutter (from `Flutter`)
+  - scan_code (from `.symlinks/plugins/scan_code/ios`)
+
+EXTERNAL SOURCES:
+  Flutter:
+    :path: Flutter
+  scan_code:
+    :path: ".symlinks/plugins/scan_code/ios"
+
+SPEC CHECKSUMS:
+  Flutter: 0e3d915762c693b495b44d77113d4970485de6ec
+  scan_code: 249576d509f39a2485beac11b01f2abd82173935
+
+PODFILE CHECKSUM: 3dbe063e9c90a5d7c9e4e76e70a821b9e2c1d271
+
+COCOAPODS: 1.8.4
