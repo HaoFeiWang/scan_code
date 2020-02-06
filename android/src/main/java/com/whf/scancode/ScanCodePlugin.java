@@ -19,9 +19,7 @@ public class ScanCodePlugin implements FlutterPlugin {
   public void onAttachedToEngine(@NonNull FlutterPluginBinding flutterPluginBinding) {
     final MethodChannel channel = new MethodChannel(
             flutterPluginBinding.getFlutterEngine().getDartExecutor(), CHANNEL);
-    TextureRegistry textureRegistry = flutterPluginBinding.getFlutterEngine().getRenderer();
-
-    channel.setMethodCallHandler(new MethodCallHandlerImpl(textureRegistry));
+    channel.setMethodCallHandler(new MethodCallHandlerImpl(flutterPluginBinding));
   }
 
   @Override

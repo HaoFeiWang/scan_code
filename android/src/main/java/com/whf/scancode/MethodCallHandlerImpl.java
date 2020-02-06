@@ -1,6 +1,7 @@
 package com.whf.scancode;
 
 import io.flutter.Log;
+import io.flutter.embedding.engine.plugins.FlutterPlugin;
 import io.flutter.plugin.common.MethodCall;
 import io.flutter.plugin.common.MethodChannel;
 import io.flutter.view.TextureRegistry;
@@ -9,10 +10,10 @@ public class MethodCallHandlerImpl implements MethodChannel.MethodCallHandler {
 
     private static final String TAG = MethodCallHandlerImpl.class.getSimpleName();
 
-    private TextureRegistry textureRegistry;
+    private FlutterPlugin.FlutterPluginBinding flutterPluginBinding;
 
-    public MethodCallHandlerImpl(TextureRegistry textureRegistry) {
-        this.textureRegistry = textureRegistry;
+    public MethodCallHandlerImpl(FlutterPlugin.FlutterPluginBinding flutterPluginBinding) {
+        this.flutterPluginBinding = flutterPluginBinding;
     }
 
     @Override
@@ -30,9 +31,10 @@ public class MethodCallHandlerImpl implements MethodChannel.MethodCallHandler {
 
     private void scanBarCode(MethodCall call, MethodChannel.Result result) {
         TextureRegistry.SurfaceTextureEntry flutterSurfaceTexture =
-                textureRegistry.createSurfaceTexture();
+                flutterPluginBinding.getTextureRegistry().createSurfaceTexture();
 
-        CameraPreviewManager cameraPreviewManager = new CameraPreviewManager();
+        CameraPreviewManager cameraPreviewManager = CameraPreviewManager
+                .getInstance(flutterPluginBinding.getApplicationContext());
         cameraPreviewManager.startPreview(flutterSurfaceTexture.surfaceTexture());
 
         result.success(flutterSurfaceTexture.id());
