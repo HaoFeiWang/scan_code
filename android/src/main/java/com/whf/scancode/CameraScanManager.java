@@ -9,14 +9,17 @@ import android.graphics.Matrix;
 import android.graphics.SurfaceTexture;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCaptureSession;
+import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraManager;
 import android.hardware.camera2.CaptureRequest;
+import android.hardware.camera2.params.StreamConfigurationMap;
 import android.media.Image;
 import android.media.ImageReader;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.util.Log;
+import android.util.Size;
 import android.view.Surface;
 
 import androidx.annotation.NonNull;
@@ -29,6 +32,8 @@ import com.google.zxing.common.HybridBinarizer;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 
@@ -42,10 +47,12 @@ public class CameraScanManager {
     private Context context;
     private Handler handler;
 
+    private CameraManager cameraManager;
     private CameraDevice cameraDevice;
     private CameraCaptureSession cameraCaptureSession;
 
     private ScanParams scanParams;
+    private Result scanResult;
     private SurfaceTexture surfaceTexture;
 
     public CameraScanManager(Context context) {
@@ -63,14 +70,15 @@ public class CameraScanManager {
         handler.post(new Runnable() {
             @Override
             public void run() {
-                startPreviewAsync();
+                startScanAsync();
             }
         });
     }
 
-    private void startPreviewAsync() {
+    private void startScanAsync() {
         try {
-            CameraManager cameraManager = (CameraManager) context.getSystemService(Context.CAMERA_SERVICE);
+            scanResult = null;
+            cameraManager = (CameraManager) context.getSystemService(Context.CAMERA_SERVICE);
             cameraManager.openCamera("0", new CameraDevice.StateCallback() {
                 @Override
                 public void onOpened(@NonNull CameraDevice cameraDevice) {
@@ -95,7 +103,7 @@ public class CameraScanManager {
 
     private void createCaptureSession() {
         try {
-            surfaceTexture.setDefaultBufferSize(scanParams.getWidth(), scanParams.getHeight());
+            setDefaultBufferSize();
             ImageReader pictureImageReader = createScanImageReader();
 
             Surface surface = new Surface(surfaceTexture);
@@ -119,6 +127,39 @@ public class CameraScanManager {
                 }
             }, handler);
 
+        } catch (CameraAccessException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void setDefaultBufferSize() {
+        try {
+            CameraCharacteristics characteristics = cameraManager.getCameraCharacteristics("0");
+            StreamConfigurationMap streamConfigurationMap = characteristics
+                    .get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
+
+            Size[] sizeArray = streamConfigurationMap.getOutputSizes(ImageFormat.JPEG);
+            List<Size> sizeList = Arrays.asList(sizeArray);
+            Collections.reverse(sizeList);
+
+            //设置相机预览尺寸比例和surface的尺寸比例相同
+            int finalWidth = 0;
+            int finalHeight = 0;
+            float surfaceProportion = scanParams.getHeight() / (float) scanParams.getWidth();
+            float difference = Integer.MAX_VALUE;
+
+            for (Size size : sizeList) {
+                float proportion = size.getWidth() / (float) size.getHeight();
+                float curDiff = Math.abs(proportion - surfaceProportion);
+
+                if (Math.abs(proportion - surfaceProportion) < difference) {
+                    difference = curDiff;
+                    finalWidth = size.getWidth();
+                    finalHeight = size.getHeight();
+                }
+            }
+
+            surfaceTexture.setDefaultBufferSize(finalWidth, finalHeight);
         } catch (CameraAccessException e) {
             e.printStackTrace();
         }
@@ -189,6 +230,11 @@ public class CameraScanManager {
     }
 
     private void parseResult(final Result result) {
+        if (scanResult != null && result.getText().equals(scanResult.getText())) {
+            return;
+        }
+
+        scanResult = result;
         Log.d(TAG, "parse result = " + result.getText());
         EventMessenger.getInstance().sendEvent(result.getText());
     }

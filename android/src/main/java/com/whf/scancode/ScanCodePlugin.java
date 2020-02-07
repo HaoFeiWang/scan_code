@@ -80,12 +80,12 @@ public class ScanCodePlugin implements FlutterPlugin,
 
         TextureRegistry.SurfaceTextureEntry flutterSurfaceTexture =
                 flutterBinding.getTextureRegistry().createSurfaceTexture();
+        result.success(flutterSurfaceTexture.id());
+
         if (cameraScanManager == null) {
             cameraScanManager = new CameraScanManager(flutterBinding.getApplicationContext());
         }
         cameraScanManager.startScan(flutterSurfaceTexture.surfaceTexture(), scanParams);
-
-        result.success(flutterSurfaceTexture.id());
     }
 
     private void stop() {

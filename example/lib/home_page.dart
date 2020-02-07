@@ -1,7 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:scan_code/scan_code_manager.dart';
 
-class HomePage extends StatelessWidget {
+class HomePage extends StatefulWidget {
+  @override
+  State<StatefulWidget> createState() {
+    return _HomePageState();
+  }
+}
+
+class _HomePageState extends State<HomePage> {
+  dynamic scanResult;
 
   @override
   Widget build(BuildContext context) {
@@ -9,18 +16,23 @@ class HomePage extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Plugin example app'),
       ),
-      body: Center(
-        child: FlatButton(
-          onPressed: ()=>startBarScan(context),
-          child: Text("开启相机扫描"),
-        ),
+      body: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: <Widget>[
+          FlatButton(
+            onPressed: startScan,
+            child: Text("开始扫描"),
+          ),
+          SizedBox(height: 20),
+          Text("扫描结果：$scanResult"),
+        ],
       ),
     );
   }
 
-  void startBarScan(BuildContext context) async {
-    int textureId = await ScanCodeManager().startScan(1280, 640);
-    Navigator.of(context).pushReplacementNamed("scanCodePage",arguments: textureId);
+  void startScan() async {
+    scanResult = await Navigator.of(context).pushNamed("scanCodePage");
+    setState(() {});
   }
-
 }
