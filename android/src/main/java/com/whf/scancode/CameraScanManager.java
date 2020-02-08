@@ -26,6 +26,7 @@ import androidx.annotation.NonNull;
 
 import com.google.zxing.BarcodeFormat;
 import com.google.zxing.BinaryBitmap;
+import com.google.zxing.DecodeHintType;
 import com.google.zxing.MultiFormatReader;
 import com.google.zxing.PlanarYUVLuminanceSource;
 import com.google.zxing.RGBLuminanceSource;
@@ -35,8 +36,13 @@ import com.google.zxing.common.HybridBinarizer;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.EnumSet;
+import java.util.HashMap;
+import java.util.Hashtable;
 import java.util.List;
+import java.util.Map;
 
 
 /**
@@ -55,6 +61,7 @@ public class CameraScanManager {
 
     private ScanParams scanParams;
     private SurfaceTexture surfaceTexture;
+    private ImageReader pictureImageReader;
 
     public CameraScanManager(Context context) {
         HandlerThread handlerThread = new HandlerThread("ScanCode");
@@ -97,7 +104,7 @@ public class CameraScanManager {
                 }
             }, handler);
         } catch (CameraAccessException e) {
-            Log.e(TAG,"openCamera error = "+e);
+            Log.e(TAG, "openCamera error = " + e);
             e.printStackTrace();
         }
     }
@@ -105,7 +112,7 @@ public class CameraScanManager {
     private void createCaptureSession() {
         try {
             setDefaultBufferSize();
-            ImageReader pictureImageReader = createScanImageReader();
+            createScanImageReader();
 
             Surface surface = new Surface(surfaceTexture);
             final CaptureRequest.Builder builder = cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
@@ -129,7 +136,7 @@ public class CameraScanManager {
             }, handler);
 
         } catch (CameraAccessException e) {
-            Log.e(TAG,"createCaptureSession error = "+e);
+            Log.e(TAG, "createCaptureSession error = " + e);
             e.printStackTrace();
         }
     }
@@ -140,7 +147,7 @@ public class CameraScanManager {
             StreamConfigurationMap streamConfigurationMap = characteristics
                     .get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
 
-            Size[] sizeArray = streamConfigurationMap.getOutputSizes(ImageFormat.YUV_420_888);
+            Size[] sizeArray = streamConfigurationMap.getOutputSizes(ImageFormat.JPEG);
             List<Size> sizeList = Arrays.asList(sizeArray);
             Collections.reverse(sizeList);
 
@@ -164,14 +171,18 @@ public class CameraScanManager {
             Log.d(TAG, "default buffer size width: " + finalHeight + " height = " + finalHeight);
             surfaceTexture.setDefaultBufferSize(finalWidth, finalHeight);
         } catch (CameraAccessException e) {
-            Log.e(TAG,"setDefaultBufferSize error = "+e);
+            Log.e(TAG, "setDefaultBufferSize error = " + e);
             e.printStackTrace();
         }
     }
 
-    private ImageReader createScanImageReader() {
-        ImageReader pictureImageReader = ImageReader.newInstance(
-                scanParams.getWidth(), scanParams.getHeight(), ImageFormat.YUV_420_888, 4);
+    private void createScanImageReader() {
+        if (pictureImageReader != null) {
+            return;
+        }
+
+        pictureImageReader = ImageReader.newInstance(
+                scanParams.getWidth(), scanParams.getHeight(), ImageFormat.JPEG, 2);
 
         pictureImageReader.setOnImageAvailableListener(new ImageReader.OnImageAvailableListener() {
             @Override
@@ -184,8 +195,6 @@ public class CameraScanManager {
                 image.close();
             }
         }, handler);
-
-        return pictureImageReader;
     }
 
     private void sendRequest(CameraCaptureSession cameraCaptureSession, CaptureRequest.Builder builder) {
@@ -193,7 +202,7 @@ public class CameraScanManager {
             this.cameraCaptureSession = cameraCaptureSession;
             cameraCaptureSession.setRepeatingRequest(builder.build(), null, null);
         } catch (CameraAccessException e) {
-            Log.e(TAG,"setRepeatingRequest error = "+e);
+            Log.e(TAG, "setRepeatingRequest error = " + e);
             e.printStackTrace();
         }
     }
@@ -202,7 +211,7 @@ public class CameraScanManager {
         Log.d(TAG, "image width = " + image.getWidth() + " height = " + image.getHeight());
 
         //RGB扫码，扫出的码有错误
-        /*int length = image.getPlanes().length;
+        int length = image.getPlanes().length;
         Log.d(TAG, "planes length = " + length);
 
         ByteBuffer byteBuffer = image.getPlanes()[0].getBuffer();
@@ -221,26 +230,39 @@ public class CameraScanManager {
         int height = newBM.getHeight();
         int[] pixels = new int[width * height];
         newBM.getPixels(pixels, 0, width, 0, 0, width, height);
-        RGBLuminanceSource source = new RGBLuminanceSource(width, height, pixels);*/
+        RGBLuminanceSource source = new RGBLuminanceSource(width, height, pixels);
 
-        //byte[] imageByte = getBytesFromImageAsType(image);
-        //byte[] rotateImageByte = rotateYUV420Degree90(imageByte, image.getWidth(), image.getHeight());
+
+
+        //YUV分量
+        /*byte[] imageByte = getBytesFromImageAsType(image);
+        byte[] rotateImageByte = rotateYUV420Degree90(imageByte, image.getWidth(), image.getHeight());
+        PlanarYUVLuminanceSource source = new PlanarYUVLuminanceSource(
+                rotateImageByte, image.getHeight(), image.getWidth(),
+                0, 0, image.getHeight(), image.getWidth(), false);*/
+
+
 
         //只有Y分量
-        ByteBuffer byteBuffer = image.getPlanes()[0].getBuffer();
+        /*ByteBuffer byteBuffer = image.getPlanes()[0].getBuffer();
         int size = byteBuffer.remaining();
         Log.d(TAG, "byteBuffer remaining = " + size);
-
         byte[] imageByte = new byte[size];
         byteBuffer.get(imageByte);
         byte[] rotateImageByte = rotateYUV420Degree90(imageByte, image.getWidth(), image.getHeight());
-
         PlanarYUVLuminanceSource source = new PlanarYUVLuminanceSource(
                 rotateImageByte, image.getHeight(), image.getWidth(),
-                0, 0, image.getHeight(), image.getWidth(), false);
+                0, 0, image.getHeight(), image.getWidth(), false);*/
 
         BinaryBitmap binaryBitmap = new BinaryBitmap(new HybridBinarizer(source));
         MultiFormatReader reader = new MultiFormatReader();
+
+        Collection<BarcodeFormat> decodeFormats = EnumSet.noneOf(BarcodeFormat.class);
+        decodeFormats.add(BarcodeFormat.EAN_13);
+        Map<DecodeHintType, Object> hints = new HashMap<>();
+        hints.put(DecodeHintType.CHARACTER_SET, "utf-8");
+        hints.put(DecodeHintType.POSSIBLE_FORMATS, decodeFormats);
+        reader.setHints(hints);
 
         try {
             Result result = reader.decodeWithState(binaryBitmap);
@@ -340,8 +362,8 @@ public class CameraScanManager {
 
     private byte[] rotateYUV420Degree90(byte[] data, int imageWidth, int imageHeight) {
 
-
-        byte[] yuv = new byte[imageWidth * imageHeight + imageWidth];
+        //只旋转Y
+        /*byte[] yuv = new byte[imageWidth * imageHeight + imageWidth];
         // Rotate the Y luma
         int i = 0;
         for (int x = 0; x < imageWidth; x++) {
@@ -349,10 +371,10 @@ public class CameraScanManager {
                 yuv[i] = data[y * imageWidth + x];
                 i++;
             }
-        }
+        }*/
 
 
-        /*byte[] yuv = new byte[imageWidth * imageHeight * 3 / 2];
+        byte[] yuv = new byte[imageWidth * imageHeight * 3 / 2];
         // Rotate the Y luma
         int i = 0;
         for (int x = 0; x < imageWidth; x++) {
@@ -370,7 +392,7 @@ public class CameraScanManager {
                 yuv[i] = data[(imageWidth * imageHeight) + (y * imageWidth) + (x - 1)];
                 i--;
             }
-        }*/
+        }
 
         return yuv;
     }
@@ -382,6 +404,10 @@ public class CameraScanManager {
     }
 
     public void stopScan() {
+        if (pictureImageReader != null) {
+            pictureImageReader.close();
+            pictureImageReader = null;
+        }
         if (cameraCaptureSession != null) {
             cameraCaptureSession.close();
             cameraCaptureSession = null;

@@ -1,6 +1,6 @@
 name: scan_code
 description: Flutter扫码库.
-version: 0.0.5
+version: 0.0.6
 homepage: https://github.com/HaoFeiWang/scan_code
 
 environment:
