@@ -17,9 +17,10 @@ class ScanCodePageState extends State<ScanCodePage> {
   }
 
   void receiveScanEvent(dynamic event) {
-    if (!_pop) {
+    print("scan result = $event");
+    /*if (!_pop) {
       _pop = true;
       Navigator.pop(context, event);
-    }
+    }*/
   }
 }

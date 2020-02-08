@@ -97,6 +97,7 @@ public class CameraScanManager {
                 }
             }, handler);
         } catch (CameraAccessException e) {
+            Log.e(TAG,"openCamera error = "+e);
             e.printStackTrace();
         }
     }
@@ -128,6 +129,7 @@ public class CameraScanManager {
             }, handler);
 
         } catch (CameraAccessException e) {
+            Log.e(TAG,"createCaptureSession error = "+e);
             e.printStackTrace();
         }
     }
@@ -162,13 +164,14 @@ public class CameraScanManager {
             Log.d(TAG, "default buffer size width: " + finalHeight + " height = " + finalHeight);
             surfaceTexture.setDefaultBufferSize(finalWidth, finalHeight);
         } catch (CameraAccessException e) {
+            Log.e(TAG,"setDefaultBufferSize error = "+e);
             e.printStackTrace();
         }
     }
 
     private ImageReader createScanImageReader() {
         ImageReader pictureImageReader = ImageReader.newInstance(
-                scanParams.getWidth(), scanParams.getHeight(), ImageFormat.YUV_420_888, 2);
+                scanParams.getWidth(), scanParams.getHeight(), ImageFormat.YUV_420_888, 4);
 
         pictureImageReader.setOnImageAvailableListener(new ImageReader.OnImageAvailableListener() {
             @Override
@@ -190,6 +193,7 @@ public class CameraScanManager {
             this.cameraCaptureSession = cameraCaptureSession;
             cameraCaptureSession.setRepeatingRequest(builder.build(), null, null);
         } catch (CameraAccessException e) {
+            Log.e(TAG,"setRepeatingRequest error = "+e);
             e.printStackTrace();
         }
     }
@@ -219,8 +223,18 @@ public class CameraScanManager {
         newBM.getPixels(pixels, 0, width, 0, 0, width, height);
         RGBLuminanceSource source = new RGBLuminanceSource(width, height, pixels);*/
 
-        byte[] imageByte = getBytesFromImageAsType(image);
+        //byte[] imageByte = getBytesFromImageAsType(image);
+        //byte[] rotateImageByte = rotateYUV420Degree90(imageByte, image.getWidth(), image.getHeight());
+
+        //只有Y分量
+        ByteBuffer byteBuffer = image.getPlanes()[0].getBuffer();
+        int size = byteBuffer.remaining();
+        Log.d(TAG, "byteBuffer remaining = " + size);
+
+        byte[] imageByte = new byte[size];
+        byteBuffer.get(imageByte);
         byte[] rotateImageByte = rotateYUV420Degree90(imageByte, image.getWidth(), image.getHeight());
+
         PlanarYUVLuminanceSource source = new PlanarYUVLuminanceSource(
                 rotateImageByte, image.getHeight(), image.getWidth(),
                 0, 0, image.getHeight(), image.getWidth(), false);
@@ -325,7 +339,20 @@ public class CameraScanManager {
     }
 
     private byte[] rotateYUV420Degree90(byte[] data, int imageWidth, int imageHeight) {
-        byte[] yuv = new byte[imageWidth * imageHeight * 3 / 2];
+
+
+        byte[] yuv = new byte[imageWidth * imageHeight + imageWidth];
+        // Rotate the Y luma
+        int i = 0;
+        for (int x = 0; x < imageWidth; x++) {
+            for (int y = imageHeight - 1; y >= 0; y--) {
+                yuv[i] = data[y * imageWidth + x];
+                i++;
+            }
+        }
+
+
+        /*byte[] yuv = new byte[imageWidth * imageHeight * 3 / 2];
         // Rotate the Y luma
         int i = 0;
         for (int x = 0; x < imageWidth; x++) {
@@ -343,7 +370,8 @@ public class CameraScanManager {
                 yuv[i] = data[(imageWidth * imageHeight) + (y * imageWidth) + (x - 1)];
                 i--;
             }
-        }
+        }*/
+
         return yuv;
     }
 
