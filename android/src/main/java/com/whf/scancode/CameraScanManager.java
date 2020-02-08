@@ -27,6 +27,7 @@ import androidx.annotation.NonNull;
 import com.google.zxing.BarcodeFormat;
 import com.google.zxing.BinaryBitmap;
 import com.google.zxing.MultiFormatReader;
+import com.google.zxing.PlanarYUVLuminanceSource;
 import com.google.zxing.RGBLuminanceSource;
 import com.google.zxing.Result;
 import com.google.zxing.common.HybridBinarizer;
@@ -137,7 +138,7 @@ public class CameraScanManager {
             StreamConfigurationMap streamConfigurationMap = characteristics
                     .get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
 
-            Size[] sizeArray = streamConfigurationMap.getOutputSizes(ImageFormat.JPEG);
+            Size[] sizeArray = streamConfigurationMap.getOutputSizes(ImageFormat.YUV_420_888);
             List<Size> sizeList = Arrays.asList(sizeArray);
             Collections.reverse(sizeList);
 
@@ -158,6 +159,7 @@ public class CameraScanManager {
                 }
             }
 
+            Log.d(TAG, "default buffer size width: " + finalHeight + " height = " + finalHeight);
             surfaceTexture.setDefaultBufferSize(finalWidth, finalHeight);
         } catch (CameraAccessException e) {
             e.printStackTrace();
@@ -166,7 +168,7 @@ public class CameraScanManager {
 
     private ImageReader createScanImageReader() {
         ImageReader pictureImageReader = ImageReader.newInstance(
-                scanParams.getWidth(), scanParams.getHeight(), ImageFormat.JPEG, 2);
+                scanParams.getWidth(), scanParams.getHeight(), ImageFormat.YUV_420_888, 2);
 
         pictureImageReader.setOnImageAvailableListener(new ImageReader.OnImageAvailableListener() {
             @Override
@@ -195,7 +197,8 @@ public class CameraScanManager {
     private void scanRGBImage(Image image) {
         Log.d(TAG, "image width = " + image.getWidth() + " height = " + image.getHeight());
 
-        int length = image.getPlanes().length;
+        //RGB扫码，扫出的码有错误
+        /*int length = image.getPlanes().length;
         Log.d(TAG, "planes length = " + length);
 
         ByteBuffer byteBuffer = image.getPlanes()[0].getBuffer();
@@ -204,28 +207,144 @@ public class CameraScanManager {
 
         byte[] imageByte = new byte[size];
         byteBuffer.get(imageByte);
-        Bitmap bitmap = BitmapFactory.decodeByteArray(imageByte, 0, imageByte.length);
 
+        Bitmap bitmap = BitmapFactory.decodeByteArray(imageByte, 0, imageByte.length);
         Matrix matrix = new Matrix();
         matrix.setRotate(90);
         Bitmap newBM = Bitmap.createBitmap(bitmap, 0, 0,
                 bitmap.getWidth(), bitmap.getHeight(), matrix, false);
-
         int width = newBM.getWidth();
         int height = newBM.getHeight();
         int[] pixels = new int[width * height];
         newBM.getPixels(pixels, 0, width, 0, 0, width, height);
+        RGBLuminanceSource source = new RGBLuminanceSource(width, height, pixels);*/
 
-        RGBLuminanceSource source = new RGBLuminanceSource(width, height, pixels);
-        BinaryBitmap bitmap1 = new BinaryBitmap(new HybridBinarizer(source));
+        byte[] imageByte = getBytesFromImageAsType(image);
+        byte[] rotateImageByte = rotateYUV420Degree90(imageByte, image.getWidth(), image.getHeight());
+        PlanarYUVLuminanceSource source = new PlanarYUVLuminanceSource(
+                rotateImageByte, image.getHeight(), image.getWidth(),
+                0, 0, image.getHeight(), image.getWidth(), false);
+
+        BinaryBitmap binaryBitmap = new BinaryBitmap(new HybridBinarizer(source));
         MultiFormatReader reader = new MultiFormatReader();
 
         try {
-            Result result = reader.decodeWithState(bitmap1);
+            Result result = reader.decodeWithState(binaryBitmap);
             parseResult(result);
         } catch (Exception e) {
             //no-op
         }
+    }
+
+    private byte[] getBytesFromImageAsType(Image image) {
+        try {
+            //获取源数据，如果是YUV格式的数据planes.length = 3
+            //plane[i]里面的实际数据可能存在byte[].length <= capacity (缓冲区总大小)
+            final Image.Plane[] planes = image.getPlanes();
+
+            //数据有效宽度，一般的，图片width <= rowStride，这也是导致byte[].length <= capacity的原因
+            // 所以我们只取width部分
+            int width = image.getWidth();
+            int height = image.getHeight();
+
+            //此处用来装填最终的YUV数据，需要1.5倍的图片大小，因为Y U V 比例为 4:1:1
+            byte[] yuvBytes = new byte[width * height * ImageFormat.getBitsPerPixel(ImageFormat.YUV_420_888) / 8];
+            //目标数组的装填到的位置
+            int dstIndex = 0;
+
+            //临时存储uv数据的
+            byte uBytes[] = new byte[width * height / 4];
+            byte vBytes[] = new byte[width * height / 4];
+            int uIndex = 0;
+            int vIndex = 0;
+
+            int pixelsStride, rowStride;
+            for (int i = 0; i < planes.length; i++) {
+                pixelsStride = planes[i].getPixelStride();
+                rowStride = planes[i].getRowStride();
+
+                ByteBuffer buffer = planes[i].getBuffer();
+
+                //如果pixelsStride==2，一般的Y的buffer长度=640*480，UV的长度=640*480/2-1
+                //源数据的索引，y的数据是byte中连续的，u的数据是v向左移以为生成的，两者都是偶数位为有效数据
+                byte[] bytes = new byte[buffer.capacity()];
+                buffer.get(bytes);
+
+                int srcIndex = 0;
+                if (i == 0) {
+                    //直接取出来所有Y的有效区域，也可以存储成一个临时的bytes，到下一步再copy
+                    for (int j = 0; j < height; j++) {
+                        System.arraycopy(bytes, srcIndex, yuvBytes, dstIndex, width);
+                        srcIndex += rowStride;
+                        dstIndex += width;
+                    }
+                } else if (i == 1) {
+                    //根据pixelsStride取相应的数据
+                    for (int j = 0; j < height / 2; j++) {
+                        for (int k = 0; k < width / 2; k++) {
+                            uBytes[uIndex++] = bytes[srcIndex];
+                            srcIndex += pixelsStride;
+                        }
+                        if (pixelsStride == 2) {
+                            srcIndex += rowStride - width;
+                        } else if (pixelsStride == 1) {
+                            srcIndex += rowStride - width / 2;
+                        }
+                    }
+                } else if (i == 2) {
+                    //根据pixelsStride取相应的数据
+                    for (int j = 0; j < height / 2; j++) {
+                        for (int k = 0; k < width / 2; k++) {
+                            vBytes[vIndex++] = bytes[srcIndex];
+                            srcIndex += pixelsStride;
+                        }
+                        if (pixelsStride == 2) {
+                            srcIndex += rowStride - width;
+                        } else if (pixelsStride == 1) {
+                            srcIndex += rowStride - width / 2;
+                        }
+                    }
+                }
+            }
+
+            //   image.close();
+
+            //根据要求的结果类型进行填充
+
+            System.arraycopy(uBytes, 0, yuvBytes, dstIndex, uBytes.length);
+            System.arraycopy(vBytes, 0, yuvBytes, dstIndex + uBytes.length, vBytes.length);
+
+            return yuvBytes;
+        } catch (final Exception e) {
+            if (image != null) {
+                image.close();
+            }
+            Log.i(TAG, e.toString());
+        }
+        return null;
+    }
+
+    private byte[] rotateYUV420Degree90(byte[] data, int imageWidth, int imageHeight) {
+        byte[] yuv = new byte[imageWidth * imageHeight * 3 / 2];
+        // Rotate the Y luma
+        int i = 0;
+        for (int x = 0; x < imageWidth; x++) {
+            for (int y = imageHeight - 1; y >= 0; y--) {
+                yuv[i] = data[y * imageWidth + x];
+                i++;
+            }
+        }
+        // Rotate the U and V color components
+        i = imageWidth * imageHeight * 3 / 2 - 1;
+        for (int x = imageWidth - 1; x > 0; x = x - 2) {
+            for (int y = 0; y < imageHeight / 2; y++) {
+                yuv[i] = data[(imageWidth * imageHeight) + (y * imageWidth) + x];
+                i--;
+                yuv[i] = data[(imageWidth * imageHeight) + (y * imageWidth) + (x - 1)];
+                i--;
+            }
+        }
+        return yuv;
     }
 
     private void parseResult(final Result result) {
