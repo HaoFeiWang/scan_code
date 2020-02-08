@@ -4,7 +4,6 @@ package com.whf.scancode;
 import android.os.Handler;
 import android.os.Looper;
 
-import io.flutter.Log;
 import io.flutter.plugin.common.EventChannel;
 
 

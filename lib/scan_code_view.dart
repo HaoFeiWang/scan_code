@@ -4,6 +4,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 
 MethodChannel _channel = const MethodChannel('com.whf.plugin/scan_code');
+
 EventChannel _eventChannel =
     const EventChannel('com.whf.plugin/scan_code/event');
 
@@ -70,6 +71,8 @@ class _ScanCodeViewState extends State<ScanCodeView> {
     }
 
     scanning = true;
+    print("start scan");
+
     return _channel.invokeMethod("startScan", <String, int>{
       "previewWidth": previewWidth,
       "previewHeight": previewHeight
@@ -77,6 +80,8 @@ class _ScanCodeViewState extends State<ScanCodeView> {
       textureId = value;
       textureIdReady = true;
       setState(() {});
+    }).catchError((error) {
+      Navigator.pop(context);
     });
   }
 

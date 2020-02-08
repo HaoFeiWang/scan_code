@@ -24,6 +24,7 @@ import android.view.Surface;
 
 import androidx.annotation.NonNull;
 
+import com.google.zxing.BarcodeFormat;
 import com.google.zxing.BinaryBitmap;
 import com.google.zxing.MultiFormatReader;
 import com.google.zxing.RGBLuminanceSource;
@@ -52,7 +53,6 @@ public class CameraScanManager {
     private CameraCaptureSession cameraCaptureSession;
 
     private ScanParams scanParams;
-    private Result scanResult;
     private SurfaceTexture surfaceTexture;
 
     public CameraScanManager(Context context) {
@@ -77,7 +77,6 @@ public class CameraScanManager {
 
     private void startScanAsync() {
         try {
-            scanResult = null;
             cameraManager = (CameraManager) context.getSystemService(Context.CAMERA_SERVICE);
             cameraManager.openCamera("0", new CameraDevice.StateCallback() {
                 @Override
@@ -230,12 +229,8 @@ public class CameraScanManager {
     }
 
     private void parseResult(final Result result) {
-        if (scanResult != null && result.getText().equals(scanResult.getText())) {
-            return;
-        }
-
-        scanResult = result;
-        Log.d(TAG, "parse result = " + result.getText());
+        BarcodeFormat format = result.getBarcodeFormat();
+        Log.d(TAG, "parse result = " + result.getText() + " format = " + format + " format name = " + format.name());
         EventMessenger.getInstance().sendEvent(result.getText());
     }
 
